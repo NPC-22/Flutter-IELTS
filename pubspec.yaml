@@ -40,7 +40,7 @@ dependencies:
   google_nav_bar: ^5.0.6
   marquee: ^2.0.3
   flutter_easyloading: ^3.0.5
-
+  just_audio: ^0.9.34
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +60,7 @@ flutter:
     - assets/thumbnail/thumbnail2.webp
     - assets/thumbnail/thumbnail3.webp
     - assets/thumbnail/thumbnail4.webp
+    - assets/ielts.png
 
 
   fonts:

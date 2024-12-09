@@ -1,311 +1,115 @@
-library flutter_camera;
-
-import 'dart:async';
-import 'dart:io';
-
-import 'package:camera/camera.dart';
+import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:get/get.dart';
-import 'package:onboarding_app/network/models/HttpReposonceHandler.dart';
-import 'package:video_player/video_player.dart';
-import 'package:video_thumbnail/video_thumbnail.dart' as myVideoThumbNail;  
-import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:http/http.dart' as http;
+import 'package:onboarding_app/widgets/custom_drawer.dart';
 
-import 'controllers/GuideController/guide-controller.dart';
-import 'network/repository/auth/auth_repo.dart';
-import 'dart:math' as math;
-
-class FlutterCameraLatest extends StatefulWidget {
-  final Color? color;
-  final Color? iconColor;
-  final Function(XFile)? onVideoRecorded;
-  final Duration? animationDuration;
-  final String question;
-
-  const FlutterCameraLatest({
-    Key? key,
-    this.animationDuration = const Duration(seconds: 1),
-    this.onVideoRecorded,
-    this.iconColor = Colors.white,
-    required this.color,
-    this.question = "Question Not Found Restart",
-  }) : super(key: key);
-
+class ReadingPage extends StatelessWidget {
   @override
-  _FlutterCameraState createState() => _FlutterCameraState();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'IELTS Reading Prep',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: ReadingPrepScreen(),
+    );
+  }
 }
 
-class _FlutterCameraState extends State<FlutterCameraLatest> {
-  int _start = 30;
-  List<CameraDescription>? cameras;
-  CameraController? controller;
-  bool _isRecording = false;
-  final GuideController? _guidecontroller = Get.put(GuideController());
-  XFile? videoUrl = new XFile("");
-  late var thumbnailPath;
-  late CameraDescription frontCamera;
-  late var question;
-  bool isStartRecordingBtnEnabled = true;
-  bool isStopRecordingBtnEnabled = false;
-  bool isUploadRecordingBtnEnabled = false;
-  bool isCamerStartButtonPressed = false;
-  String len = "0";
-  bool isVideoRecorded = false;
-  bool isVideoRecording = false;
-  String displayCancelorRetake = "Cancel";
-  String displayNextQuestorUploadVideo = "Next\nQuestion";
-  late Timer _timer;
-  late FlutterTts flutterTts;
-  bool _isTimerRunning = false;
+class ReadingPrepScreen extends StatefulWidget {
+  @override
+  _ReadingPrepScreenState createState() => _ReadingPrepScreenState();
+}
+
+class _ReadingPrepScreenState extends State<ReadingPrepScreen> {
+  String readingPassage = '';
+  List<Map<String, String>> questions = [];
+  bool isReadingTestStarted = false;
+
+  final List<String> tips = [
+    'Read the instructions carefully.',
+    'Skim through the passage to get an idea of the content.',
+    'Focus on the main ideas and supporting details.',
+    'Use your prior knowledge to help you understand the passage.',
+    'Manage your time effectively to complete all the questions.'
+  ];
 
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-    initCamera().then((_) {
-      setCamera(1);
-    });
-    flutterTts = FlutterTts();
+    _fetchReadingData();
   }
 
-  Future _speakQuestion() async {
-    await flutterTts.setLanguage("en-US");
-    await flutterTts.setPitch(1.0);
-    await flutterTts.speak(question);
-  }
+  Future<void> _fetchReadingData() async {
+    // Replace with your actual API endpoint
+    final passageResponse = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/posts/1'));
+    final questionsResponse = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/posts'));
 
-  Future<void> initCamera() async {
-    cameras = await availableCameras();
-    setState(() {});
-  }
-
-  void setCamera(int index) {
-    controller = CameraController(
-      cameras![index],
-      ResolutionPreset.high,
-      enableAudio: true,
-      imageFormatGroup: ImageFormatGroup.yuv420,
-    );
-
-    controller!.initialize().then((_) {
-      updateText(_guidecontroller!.idx.value);
-      _speakQuestion();
-      if (!mounted) {
-        return;
-      }
-      setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    flutterTts.stop();
-    controller?.dispose();
-    _timer.cancel();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    super.dispose();
-  }
-
-  String updateText(int value) {
-    setState(() {
-      question = _guidecontroller!.quesList[value].question.toString();
-    });
-    return question;
+    if (passageResponse.statusCode == 200 && questionsResponse.statusCode == 200) {
+      setState(() {
+        readingPassage = json.decode(passageResponse.body)['body'];
+        questions = List.generate(5, (index) => {
+          'question': 'Sample Question ${index + 1}',
+          'answer': 'Sample Answer ${index + 1}',
+        });
+      });
+    } else {
+      throw Exception('Failed to load reading data');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (controller == null || !controller!.value.isInitialized) {
-      return Container();
-    }
     return Scaffold(
-      body: videoView(),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => CustomDrawer()),
+            );
+          },
+        ),
+        title: Text('IELTS Reading Prep'),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: isReadingTestStarted ? _buildReadingTestView() : _buildReadingTipsView(),
+      ),
     );
   }
 
-  String displayNextQuestion() {
-    _speakQuestion();
-    var value;
-    var question;
-    setState(() {
-      _start = 30;
-      videoUrl = null;
-      isVideoRecording = false;
-      _isRecording = false;
-      isVideoRecorded = false;
-      displayCancelorRetake = 'Cancel';
-      displayNextQuestorUploadVideo = 'Next\nQuestion';
-      value = _guidecontroller?.changeListIndextoNext();
-      question = _guidecontroller!.quesList[value].question.toString();
-    });
-    return question;
-  }
-
-  void reTake() {
-    setState(() {
-      _start = 30;
-      videoUrl = null;
-      isVideoRecording = false;
-      _isRecording = false;
-      isVideoRecorded = false;
-      displayCancelorRetake = 'Cancel';
-      displayNextQuestorUploadVideo = 'Next\nQuestion';
-      _speakQuestion();
-    });
-  }
-
-  Widget videoView() {
-    question = updateText(_guidecontroller!.idx.value);
-    return Stack(
-      key: const ValueKey(1),
+  Widget _buildReadingTipsView() {
+    return Column(
       children: [
-        isVideoRecorded
-            ? SizedBox(
-          height: MediaQuery.of(context).size.height,
-          width: MediaQuery.of(context).size.width,
-          child: videoUrl!.path.isEmpty
-              ? const Center(
-            child: Text(
-              'Video URL is empty',
-              style: TextStyle(fontSize: 18, color: Colors.red),
-            ),
-          )
-              : Center(
-            child: VideoPlayerWidget(videoPath: videoUrl!.path),
-          ),
-        )
-            : SizedBox(
-          height: MediaQuery.of(context).size.height,
-          width: MediaQuery.of(context).size.width,
-          child: CameraPreview(controller!),
-        ),
-        Positioned(
-          top: 0,
-          child: Container(
-            padding: const EdgeInsets.only(
-                top: 40, bottom: 10.0, left: 7.0, right: 7.0),
-            width: MediaQuery.of(context).size.width,
-            color: widget.color,
-            child: Column(
-              children: [
-                if (!isVideoRecorded)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          alignment: Alignment.center,
-                          child: Text(
-                            _isRecording == false
-                                ? '00:30'
-                                : "00:" +
-                                '${_start.toString().padLeft(2, '0')}',
-                            style: TextStyle(
-                                color: widget.iconColor, fontSize: 22),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                Center(
-                  child: Text(
-                    question,
-                    style: TextStyle(
-                      color: widget.iconColor,
-                      fontSize: 21.0,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
+        Center(
+          child: Text(
+            'Reading Tips',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
         ),
-        Positioned(
-          bottom: 0,
-          child: Container(
-            width: MediaQuery.of(context).size.width,
-            padding: const EdgeInsets.all(20),
-            color: widget.color,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                if (!_isRecording)
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        isVideoRecorded ? reTake() : Navigator.pop(context);
-                      },
-                      borderRadius: BorderRadius.circular(10.0),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 10.0, horizontal: 20.0),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10.0),
-                        ),
-                        child: Text(
-                          displayCancelorRetake,
-                          style: TextStyle(
-                              color: widget.iconColor,
-                              fontSize: 16.0,
-                              fontWeight: FontWeight.w400),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (!isVideoRecorded)
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text(
-                        'VIDEO',
-                        textAlign: TextAlign.center,
-                        style:
-                        TextStyle(color: widget.iconColor, fontSize: 14.0),
-                      ),
-                      SizedBox(height: 10),
-                      _isRecording ? stopVideoButton() : startVideoButton(),
-                    ],
-                  ),
-                if (!_isRecording)
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        isVideoRecorded ? uploadVideo() : displayNextQuestion();
-                      },
-                      borderRadius: BorderRadius.circular(10.0),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 10.0, horizontal: 20.0),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10.0),
-                        ),
-                        child: Text(
-                          displayNextQuestorUploadVideo,
-                          style: TextStyle(
-                            color: widget.iconColor,
-                            fontSize: 16.0,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+        SizedBox(height: 20),
+        Expanded(
+          child: ListView(
+            children: tips.map((tip) => TipCard(tipText: tip)).toList(),
+          ),
+        ),
+        SizedBox(height: 20),
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              isReadingTestStarted = true;
+            });
+          },
+          child: Text('Start Reading Test'),
+          style: ElevatedButton.styleFrom(
+            padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 24.0),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
           ),
         ),
@@ -313,321 +117,98 @@ class _FlutterCameraState extends State<FlutterCameraLatest> {
     );
   }
 
-  _recordVideo() async {
-    if (_isRecording) {
-      final file = await controller?.stopVideoRecording();
-      videoUrl = file;
-    isVideoRecorded = true;
-    final path = videoUrl?.path;
-    getVideoDuration(path!);
-    uploadVideo(); // Automatically upload after recording
-    } else {
-    await controller?.prepareForVideoRecording();
-    await controller?.startVideoRecording();
-    setState(() => _isRecording = true);
-    }
-  }
-
-  getVideoPathAfterTimeIsOver() async {
-    if (_isRecording) {
-      final file = await controller?.stopVideoRecording();
-      videoUrl = file;
-      isVideoRecorded = true;
-      final path = videoUrl?.path;
-      getVideoDuration(path!);
-      setState(() {
-        displayCancelorRetake = "Retake";
-        displayNextQuestorUploadVideo = 'Upload\nVideo';
-        _isRecording = false;
-      });
-      uploadVideo(); // Automatically upload after time is over
-    } else {
-      await controller?.prepareForVideoRecording();
-      await controller?.startVideoRecording();
-      setState(() => _isRecording = true);
-    }
-  }
-
-  Widget startVideoButton() {
-    IconData playOrPauseIcon = Icons.camera;
-    return IconButton(
-      onPressed: () {
-        _start = 30;
-        isVideoRecording = true;
-        if (_isRecording == false) {
-          startTimer();
-          controller!.startVideoRecording();
-          _isRecording = true;
-          playOrPauseIcon = Icons.stop_circle;
-        } else {
-          _isRecording = false;
-          playOrPauseIcon = Icons.play_circle;
-          _recordVideo();
-        }
-      },
-      icon: Icon(
-        playOrPauseIcon,
-        color: Colors.white,
-        size: 50,
-      ),
+  Widget _buildReadingTestView() {
+    return Column(
+      children: [
+        Center(
+          child: Text(
+            'Reading Passage',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+        ),
+        SizedBox(height: 20),
+        Text(
+          readingPassage,
+          style: TextStyle(fontSize: 18),
+        ),
+        SizedBox(height: 20),
+        Expanded(
+          child: ListView.builder(
+            itemCount: questions.length,
+            itemBuilder: (context, index) {
+              return Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+                elevation: 4,
+                shadowColor: Colors.grey.withOpacity(0.4),
+                margin: EdgeInsets.symmetric(vertical: 8.0),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Question ${index + 1}: ${questions[index]['question']}',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 10),
+                      TextField(
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(),
+                          labelText: 'Your Answer',
+                        ),
+                        maxLines: 3,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
-  }
-
-  Widget stopVideoButton() {
-    return IconButton(
-      icon: Icon(
-        isVideoRecorded ? Icons.play_arrow : Icons.stop_circle,
-        color: Colors.red,
-        size: 50,
-      ),
-      onPressed: () {
-        isVideoRecording = false;
-        displayCancelorRetake = "Retake";
-        displayNextQuestorUploadVideo = 'Upload\nVideo';
-        if (_isRecording == false) {
-          startTimer();
-          controller!.startVideoRecording();
-          _isRecording = true;
-        } else {
-          _recordVideo();
-          _isRecording = false;
-        }
-      },
-    );
-  }
-
-  void startTimer() {
-    if (!_isTimerRunning) {
-      _isTimerRunning = true;
-      const oneSec = Duration(seconds: 1);
-      _timer = Timer.periodic(
-        oneSec,
-            (Timer timer) {
-          if (_start == 0) {
-            setState(() {
-              _isRecording = true;
-              isVideoRecorded = true;
-              _timer.cancel();
-              _isTimerRunning = false;
-              isVideoRecording = false;
-              getVideoPathAfterTimeIsOver();
-            });
-          } else {
-            if (mounted) {
-              setState(() {
-                _start--;
-              });
-            }
-          }
-        },
-      );
-    }
-  }
-
-  Future<void> fetchVideoFilePath(XFile value) async {
-    videoUrl = value;
-    isVideoRecorded = true;
-  }
-
-  Future<void> getVideoDuration(String videoPath) async {
-    var uri = Uri.parse(videoPath);
-    var controller = VideoPlayerController.networkUrl(uri);
-    await controller.initialize();
-    Duration duration = controller.value.duration;
-    len = duration.inSeconds.toString();
-    controller.dispose();
-  }
-
-  Future<void> uploadVideo() async {
-    var currentId = _guidecontroller?.currentId =
-        _guidecontroller?.quesList[_guidecontroller!.idx.value].id ??
-            "1308b0cb-5921-420c-8bec-a3a26206c9b5";
-    var currentQuestion = _guidecontroller?.currentQuestion =
-        _guidecontroller?.quesList[_guidecontroller!.idx.value].question ??
-            "Interview Question";
-
-    final path = videoUrl?.path;
-    if (path!.contains(".mp4")) {
-      setState(() {
-        isStartRecordingBtnEnabled = false;
-        isStopRecordingBtnEnabled = false;
-        isUploadRecordingBtnEnabled = true;
-      });
-
-      EasyLoading.show(status: 'Uploading...please wait');
-
-      try {
-        thumbnailPath = await VideoThumbnail.thumbnailFile(
-          video: path,
-          imageFormat: myVideoThumbNail.ImageFormat.PNG,
-          maxHeight: 200,
-          quality: 50,
-        );
-
-        HttpResponse httpResponse = await UserRepo().uploadVideos(
-            currentQuestion!, len, thumbnailPath, path, currentId!);
-
-        if (httpResponse.statusCode == 200 || httpResponse.statusCode == 201) {
-          EasyLoading.dismiss();
-          Fluttertoast.showToast(
-              msg: "Video Uploaded Successfully!!!",
-              toastLength: Toast.LENGTH_SHORT,
-              gravity: ToastGravity.CENTER,
-              timeInSecForIosWeb: 1,
-              backgroundColor: Colors.green,
-              textColor: Colors.white,
-              fontSize: 16.0);
-
-          setState(() {
-            var value = _guidecontroller?.changeListIndextoNext();
-            updateText(value!);
-            displayCancelorRetake = "Cancel";
-            displayNextQuestorUploadVideo = 'Next\nQuestion';
-            _speakQuestion();
-            _start = 30;
-            videoUrl = null;
-            isVideoRecording = false;
-            _isRecording = false;
-            isVideoRecorded = false;
-            isStartRecordingBtnEnabled = false;
-            isStopRecordingBtnEnabled = false;
-            isUploadRecordingBtnEnabled = false;
-          });
-        } else {
-          setState(() {
-            _start = 30;
-            Navigator.pop(context);
-          });
-          EasyLoading.dismiss();
-          Fluttertoast.showToast(
-              msg: "Something went wrong!",
-              toastLength: Toast.LENGTH_SHORT,
-              gravity: ToastGravity.CENTER,
-              timeInSecForIosWeb: 1,
-              backgroundColor: Colors.red,
-              textColor: Colors.white,
-              fontSize: 16.0);
-        }
-      } catch (e) {
-        setState(() {
-          _start = 30;
-          Navigator.pop(context);
-        });
-        EasyLoading.dismiss();
-        Fluttertoast.showToast(
-            msg: "Something went wrong!",
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.CENTER,
-            timeInSecForIosWeb: 1,
-            backgroundColor: Colors.red,
-            textColor: Colors.white,
-            fontSize: 16.0);
-      }
-    } else {
-      setState(() {
-        _start = 30;
-        Navigator.pop(context);
-      });
-      Fluttertoast.showToast(
-          msg: "Invalid video format!",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.CENTER,
-          timeInSecForIosWeb: 1,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-          fontSize: 16.0);
-    }
   }
 }
 
-class VideoPlayerWidget extends StatefulWidget {
-  final String videoPath;
+class TipCard extends StatelessWidget {
+  final String tipText;
 
-  VideoPlayerWidget({required this.videoPath});
-
-  @override
-  _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
-}
-
-class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late VideoPlayerController _videoPlayerController;
-  bool _isPlaying = false;
-  String filePath = "";
-  bool isFrontCamera = true;
-
-  @override
-  void initState() {
-    super.initState();
-    filePath = widget.videoPath;
-    _videoPlayerController = VideoPlayerController.file(
-      File(filePath),
-    )
-      ..initialize().then((_) {
-        setState(() {});
-      }).catchError((error) {
-        print('Error initializing video player: $error');
-      });
-
-    _videoPlayerController.addListener(() {
-      setState(() {
-        _isPlaying = _videoPlayerController.value.isPlaying;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _videoPlayerController.dispose();
-    super.dispose();
-  }
+  const TipCard({required this.tipText});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: _videoPlayerController.value.isInitialized
-            ? GestureDetector(
-          onTap: () {
-            setState(() {
-              _isPlaying
-                  ? _videoPlayerController.pause()
-                  : _videoPlayerController.play();
-            });
-          },
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: _videoPlayerController.value.size.width,
-                  height: _videoPlayerController.value.size.height,
-                  child: Transform(
-                    alignment: Alignment.center,
-                    transform: isFrontCamera
-                        ? Matrix4.rotationY(math.pi)
-                        : Matrix4.identity(),
-                    child: VideoPlayer(_videoPlayerController),
-                  ),
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12.0),
+      ),
+      elevation: 4,
+      shadowColor: Colors.grey.withOpacity(0.4),
+      margin: EdgeInsets.symmetric(vertical: 8.0),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.check_circle, color: Colors.blue),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                tipText,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
                 ),
               ),
-              if (!_isPlaying)
-                const Icon(
-                  Icons.play_arrow,
-                  color: Colors.white,
-                  size: 100.0,
-                ),
-            ],
-          ),
-        )
-            : const CircularProgressIndicator(),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
-
-
-
 
 // library flutter_camera;
 // import 'dart:async';
@@ -1291,3 +872,18 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 //     );
 //   }
 // }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
